@@ -105,7 +105,8 @@ typedef struct {
     int                    tx_buf_type;            /**< WiFi TX buffer type */
     int                    static_tx_buf_num;      /**< WiFi static TX buffer number */
     int                    dynamic_tx_buf_num;     /**< WiFi dynamic TX buffer number */
-    int                    ampdu_enable;           /**< WiFi AMPDU feature enable flag */
+    int                    ampdu_rx_enable;        /**< WiFi AMPDU RX feature enable flag */
+    int                    ampdu_tx_enable;        /**< WiFi AMPDU TX feature enable flag */
     int                    nvs_enable;             /**< WiFi NVS flash enable flag */
     int                    nano_enable;            /**< Nano option for printf/scan family enable flag */
     int                    tx_ba_win;              /**< WiFi Block Ack TX window size */
@@ -125,10 +126,16 @@ typedef struct {
 #define WIFI_DYNAMIC_TX_BUFFER_NUM 0
 #endif
 
-#if CONFIG_ESP32_WIFI_AMPDU_ENABLED
-#define WIFI_AMPDU_ENABLED        1
+#if CONFIG_ESP32_WIFI_AMPDU_RX_ENABLED
+#define WIFI_AMPDU_RX_ENABLED        1
 #else
-#define WIFI_AMPDU_ENABLED        0
+#define WIFI_AMPDU_RX_ENABLED        0
+#endif
+
+#if CONFIG_ESP32_WIFI_AMPDU_TX_ENABLED
+#define WIFI_AMPDU_TX_ENABLED        1
+#else
+#define WIFI_AMPDU_TX_ENABLED        0
 #endif
 
 #if CONFIG_ESP32_WIFI_NVS_ENABLED
@@ -147,12 +154,16 @@ extern const wpa_crypto_funcs_t g_wifi_default_wpa_crypto_funcs;
 
 #define WIFI_INIT_CONFIG_MAGIC    0x1F2F3F4F
 
-#ifdef CONFIG_ESP32_WIFI_AMPDU_ENABLED
+#ifdef CONFIG_ESP32_WIFI_AMPDU_TX_ENABLED
 #define WIFI_DEFAULT_TX_BA_WIN CONFIG_ESP32_WIFI_TX_BA_WIN
+#else
+#define WIFI_DEFAULT_TX_BA_WIN 0 /* unused if ampdu_tx_enable == false */
+#endif
+
+#ifdef CONFIG_ESP32_WIFI_AMPDU_RX_ENABLED
 #define WIFI_DEFAULT_RX_BA_WIN CONFIG_ESP32_WIFI_RX_BA_WIN
 #else
-#define WIFI_DEFAULT_TX_BA_WIN 0 /* unused if ampdu_enable == false */
-#define WIFI_DEFAULT_RX_BA_WIN 0
+#define WIFI_DEFAULT_RX_BA_WIN 0 /* unused if ampdu_rx_enable == false */
 #endif
 
 #define WIFI_INIT_CONFIG_DEFAULT() { \
@@ -163,7 +174,8 @@ extern const wpa_crypto_funcs_t g_wifi_default_wpa_crypto_funcs;
     .tx_buf_type = CONFIG_ESP32_WIFI_TX_BUFFER_TYPE,\
     .static_tx_buf_num = WIFI_STATIC_TX_BUFFER_NUM,\
     .dynamic_tx_buf_num = WIFI_DYNAMIC_TX_BUFFER_NUM,\
-    .ampdu_enable = WIFI_AMPDU_ENABLED,\
+    .ampdu_rx_enable = WIFI_AMPDU_RX_ENABLED,\
+    .ampdu_tx_enable = WIFI_AMPDU_TX_ENABLED,\
     .nvs_enable = WIFI_NVS_ENABLED,\
     .nano_enable = WIFI_NANO_FORMAT_ENABLED,\
     .tx_ba_win = WIFI_DEFAULT_TX_BA_WIN,\
@@ -641,11 +653,11 @@ esp_err_t esp_wifi_set_promiscuous(bool en);
 esp_err_t esp_wifi_get_promiscuous(bool *en);
 
 /**
-  * @brief     Enable the promiscuous filter.
+  * @brief Enable the promiscuous mode packet type filter.
   *
-  * @attention 1. The default filter is to filter all packets except WIFI_PKT_MISC
+  * @note The default filter is to filter all packets except WIFI_PKT_MISC
   *
-  * @param     filter the packet type filtered by promisucous
+  * @param filter the packet type filtered in promiscuous mode.
   *
   * @return
   *    - ESP_OK: succeed
@@ -673,7 +685,7 @@ esp_err_t esp_wifi_get_promiscuous_filter(wifi_promiscuous_filter_t *filter);
   * @attention 3. ESP32 is limited to only one channel, so when in the soft-AP+station mode, the soft-AP will adjust its channel automatically to be the same as
   *               the channel of the ESP32 station.
   *
-  * @param     ifx  interface
+  * @param     interface  interface
   * @param     conf  station or soft-AP configuration
   *
   * @return
@@ -686,12 +698,12 @@ esp_err_t esp_wifi_get_promiscuous_filter(wifi_promiscuous_filter_t *filter);
   *    - ESP_ERR_WIFI_NVS: WiFi internal NVS error
   *    - others: refer to the erro code in esp_err.h
   */
-esp_err_t esp_wifi_set_config(wifi_interface_t ifx, const wifi_config_t *conf);
+esp_err_t esp_wifi_set_config(wifi_interface_t interface, wifi_config_t *conf);
 
 /**
   * @brief     Get configuration of specified interface
   *
-  * @param     ifx  interface
+  * @param     interface  interface
   * @param[out]  conf  station or soft-AP configuration
   *
   * @return
@@ -700,7 +712,7 @@ esp_err_t esp_wifi_set_config(wifi_interface_t ifx, const wifi_config_t *conf);
   *    - ESP_ERR_WIFI_ARG: invalid argument
   *    - ESP_ERR_WIFI_IF: invalid interface
   */
-esp_err_t esp_wifi_get_config(wifi_interface_t ifx, wifi_config_t *conf);
+esp_err_t esp_wifi_get_config(wifi_interface_t interface, wifi_config_t *conf);
 
 /**
   * @brief     Get STAs associated with soft-AP
